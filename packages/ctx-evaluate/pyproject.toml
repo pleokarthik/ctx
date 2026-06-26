@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Evaluation layer for ctx observability system"
 requires-python = ">=3.11"
 dependencies = [
+    "ctx-capture",
     "ragas>=0.2",
     "scipy>=1.13",
     "rich>=13.0",
@@ -20,6 +21,9 @@ transformers = [
 
 [project.scripts]
 ctx-evaluate = "ctx_evaluate.cli:main"
+
+[tool.uv.sources]
+ctx-capture = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

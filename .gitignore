@@ -32,3 +32,6 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+
+# example output
+examples/rag_pipeline/output/
