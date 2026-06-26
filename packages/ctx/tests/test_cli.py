@@ -162,6 +162,64 @@ class TestBudget:
         assert "No token budget data" in result.output
 
 
+class TestExplainHtmlMinimalRecord:
+    def test_explain_html_minimal_record(self, ctx_home):
+        db_path = ctx_home / ".ctx" / "runs.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        rec = RunRecord(query="minimal query", response="minimal response")
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.executescript(SCHEMA)
+            conn.execute("INSERT INTO meta VALUES ('schema_version', '1')")
+            conn.execute(
+                "INSERT INTO sessions VALUES (1, NULL, 'p', '2026-06-10T10:00:00+00:00')"
+            )
+            conn.execute(
+                "INSERT INTO runs VALUES (1, 1, ?, 'p', '2026-06-10T10:00:00+00:00', ?)",
+                (rec.query, json.dumps(rec.to_json())),
+            )
+        result = CliRunner().invoke(main, ["explain", "s1r1", "--html"])
+        assert result.exit_code == 0
+        assert "Report written to" in result.output
+        reports_dir = ctx_home / ".ctx" / "reports"
+        html_files = list(reports_dir.glob("*.html"))
+        assert len(html_files) == 1
+        content = html_files[0].read_text(encoding="utf-8")
+        assert "<html>" in content
+
+
+class TestExplainEvalScores:
+    def test_explain_shows_eval_scores_when_present(self, ctx_home):
+        db_path = ctx_home / ".ctx" / "runs.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        rec = RunRecord(query="eval query", response="eval response")
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.executescript(SCHEMA)
+            conn.execute("INSERT INTO meta VALUES ('schema_version', '1')")
+            for col, col_type in [
+                ("eval_scores", "TEXT"),
+                ("risk_score", "REAL"),
+                ("evaluated_at", "TEXT"),
+            ]:
+                conn.execute(f"ALTER TABLE runs ADD COLUMN {col} {col_type}")
+            conn.execute(
+                "UPDATE meta SET value = '2' WHERE key = 'schema_version'"
+            )
+            conn.execute(
+                "INSERT INTO sessions VALUES (1, NULL, 'p', '2026-06-10T10:00:00+00:00')"
+            )
+            eval_scores = json.dumps({
+                "input": {"policy_violations": [], "mean_relevance": 0.8},
+            })
+            conn.execute(
+                "INSERT INTO runs (session_id, run_seq, query, pipeline, created_at, run_data, eval_scores, risk_score, evaluated_at) "
+                "VALUES (1, 1, ?, 'p', '2026-06-10T10:00:00+00:00', ?, ?, 0.15, '2026-06-10T10:05:00+00:00')",
+                (rec.query, json.dumps(rec.to_json()), eval_scores),
+            )
+        result = CliRunner().invoke(main, ["explain", "s1r1"])
+        assert result.exit_code == 0
+        assert "Evaluation Scores" in result.output
+
+
 class TestSessionRename:
     def test_renames(self, populated_db):
         result = CliRunner().invoke(main, ["session", "rename", "s1", "My Title"])

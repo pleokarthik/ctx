@@ -56,7 +56,7 @@ class TestTokens:
         assert result["model_limit"] == 4096
         assert len(result["per_chunk"]) == 2
 
-    def test_history_tokens_sums_both_pre_and_post(self):
+    def test_history_tokens_sums_post_only(self):
         record = RunRecord(
             query="q",
             response="r",
@@ -81,7 +81,7 @@ class TestTokens:
             ],
         )
         result = tokens.analyze(record)
-        assert result["history_tokens"] == 75  # 10+20+15 + 10+20
+        assert result["history_tokens"] == 30  # post only: 10+20
 
 
 class TestDuplicates:
@@ -248,6 +248,23 @@ class TestHistory:
         result = history.analyze(full_record)
         assert result["pre_tokens"] == 8  # 3 + 5
         assert result["post_tokens"] == 3
+
+
+    def test_history_all_turns_evicted(self):
+        record = RunRecord(
+            query="q",
+            response="r",
+            history_pre=[
+                Turn(role="user", content="hello", tokens=10),
+                Turn(role="assistant", content="hi", tokens=20),
+                Turn(role="user", content="question", tokens=15),
+            ],
+            history_post=[],
+        )
+        result = history.analyze(record)
+        assert result is not None
+        assert result["dropped_turn_count"] == 3
+        assert result["post_turn_count"] == 0
 
 
 class TestCache:

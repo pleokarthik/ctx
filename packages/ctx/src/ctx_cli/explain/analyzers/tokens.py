@@ -7,10 +7,7 @@ def analyze(record: RunRecord) -> dict | None:
 
     chunks_tokens = sum(c.token_count for c in (record.chunks or []))
 
-    history_tokens = 0
-    for turns in (record.history_pre, record.history_post):
-        if turns:
-            history_tokens += sum(t.tokens or 0 for t in turns)
+    history_tokens = sum(t.tokens or 0 for t in (record.history_post or []))
 
     system_tokens = 0
     headroom = 0

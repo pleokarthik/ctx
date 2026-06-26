@@ -43,7 +43,10 @@ class Run:
                 for c in chunks
             ]
         except Exception as e:
-            _get_logger().error("run.chunks() failed: %s", e)
+            try:
+                _get_logger().error("run.chunks() failed: %s", e)
+            except Exception:
+                pass
 
     def context(self, final_prompt: str, token_budget=None) -> None:
         try:
@@ -55,7 +58,10 @@ class Run:
                     else TokenBudget(**token_budget)
                 )
         except Exception as e:
-            _get_logger().error("run.context() failed: %s", e)
+            try:
+                _get_logger().error("run.context() failed: %s", e)
+            except Exception:
+                pass
 
     def history(self, pre: list, post: list, reason: str = None) -> None:
         try:
@@ -67,7 +73,10 @@ class Run:
             ]
             self._record.eviction_reason = reason
         except Exception as e:
-            _get_logger().error("run.history() failed: %s", e)
+            try:
+                _get_logger().error("run.history() failed: %s", e)
+            except Exception:
+                pass
 
     def response(self, response: str, token_usage=None, model: str = None) -> None:
         try:
@@ -81,7 +90,10 @@ class Run:
                 )
             self.commit()
         except Exception as e:
-            _get_logger().error("run.response() failed: %s", e)
+            try:
+                _get_logger().error("run.response() failed: %s", e)
+            except Exception:
+                pass
 
     def cache(self, events: list) -> None:
         try:
@@ -90,7 +102,10 @@ class Run:
                 for e in events
             ]
         except Exception as e:
-            _get_logger().error("run.cache() failed: %s", e)
+            try:
+                _get_logger().error("run.cache() failed: %s", e)
+            except Exception:
+                pass
 
     def commit(self) -> None:
         if self._committed:
@@ -101,7 +116,10 @@ class Run:
             store.write_run(session_id, run_seq, self._record, self._pipeline)
             self._committed = True
         except Exception as e:
-            _get_logger().error("run.commit() failed: %s", e)
+            try:
+                _get_logger().error("run.commit() failed: %s", e)
+            except Exception:
+                pass
 
 
 def start(query: str, pipeline: str = None) -> Run:
@@ -138,7 +156,10 @@ def capture(query: str, response: str, **kwargs) -> None:
             )
         run.commit()
     except Exception as e:
-        _get_logger().error("capture() failed: %s", e)
+        try:
+            _get_logger().error("capture() failed: %s", e)
+        except Exception:
+            pass
 
 
 # Thread-local proxies

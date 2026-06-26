@@ -38,10 +38,10 @@ def check_schema_version() -> None:
                 "Warning: no schema version found in ctx database.",
                 file=sys.stderr,
             )
-        elif row["value"] != EXPECTED_SCHEMA_VERSION:
+        elif int(row["value"]) < int(EXPECTED_SCHEMA_VERSION):
             print(
                 f"Warning: ctx database schema version {row['value']} "
-                f"does not match expected version {EXPECTED_SCHEMA_VERSION}. "
+                f"is older than minimum supported version {EXPECTED_SCHEMA_VERSION}. "
                 f"Some features may not work correctly.",
                 file=sys.stderr,
             )
@@ -84,14 +84,26 @@ def list_runs(session_id: int) -> list[dict]:
         conn.close()
 
 
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
+
+def _run_select_cols(conn: sqlite3.Connection) -> str:
+    base = "session_id, run_seq, query, pipeline, created_at, run_data"
+    if _has_column(conn, "runs", "eval_scores"):
+        base += ", eval_scores, risk_score, evaluated_at"
+    return base
+
+
 def get_run(session_id: int, run_seq: int) -> dict | None:
     conn = _connect()
     if conn is None:
         return None
     try:
+        cols = _run_select_cols(conn)
         row = conn.execute(
-            "SELECT session_id, run_seq, query, pipeline, created_at, run_data "
-            "FROM runs WHERE session_id = ? AND run_seq = ?",
+            f"SELECT {cols} FROM runs WHERE session_id = ? AND run_seq = ?",
             (session_id, run_seq),
         ).fetchone()
         return dict(row) if row else None
@@ -104,9 +116,9 @@ def get_latest_run() -> dict | None:
     if conn is None:
         return None
     try:
+        cols = _run_select_cols(conn)
         row = conn.execute(
-            "SELECT session_id, run_seq, query, pipeline, created_at, run_data "
-            "FROM runs ORDER BY created_at DESC LIMIT 1",
+            f"SELECT {cols} FROM runs ORDER BY created_at DESC LIMIT 1",
         ).fetchone()
         return dict(row) if row else None
     finally:

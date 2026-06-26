@@ -232,7 +232,11 @@ def benchmark_check(target, pipeline):
         console.print("[red]Target must be in sNrN format.[/red]")
         raise SystemExit(1)
 
-    result = checker.check(int(m.group(1)), int(m.group(2)), pipeline)
+    try:
+        result = checker.check(int(m.group(1)), int(m.group(2)), pipeline)
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
 
     overall_style = {"ok": "green", "warn": "yellow", "fail": "red"}[result["overall"]]
     console.print(f"\n[bold]{result['run_id']}[/bold] -- overall: [{overall_style}]{result['overall']}[/{overall_style}]")

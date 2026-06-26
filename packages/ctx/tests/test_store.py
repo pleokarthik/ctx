@@ -144,12 +144,22 @@ class TestSchemaVersion:
         store.check_schema_version()
         assert "Warning" not in capsys.readouterr().err
 
-    def test_mismatched_version_warns(self, populated_db, capsys):
+    def test_older_version_warns(self, populated_db, capsys):
         import sqlite3
 
         with sqlite3.connect(str(store.get_db_path())) as conn:
             conn.execute(
-                "UPDATE meta SET value = '99' WHERE key = 'schema_version'"
+                "UPDATE meta SET value = '0' WHERE key = 'schema_version'"
             )
         store.check_schema_version()
         assert "Warning" in capsys.readouterr().err
+
+    def test_newer_version_no_warning(self, populated_db, capsys):
+        import sqlite3
+
+        with sqlite3.connect(str(store.get_db_path())) as conn:
+            conn.execute(
+                "UPDATE meta SET value = '2' WHERE key = 'schema_version'"
+            )
+        store.check_schema_version()
+        assert "Warning" not in capsys.readouterr().err

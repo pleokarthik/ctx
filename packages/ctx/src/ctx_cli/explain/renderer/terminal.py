@@ -159,7 +159,52 @@ _ANALYZERS = [
 ]
 
 
-def render(record: RunRecord, full: bool = False) -> None:
+def _render_eval_scores(run_row: dict) -> Panel | None:
+    import json as _json
+
+    raw = run_row.get("eval_scores")
+    if not raw:
+        return None
+    scores = _json.loads(raw) if isinstance(raw, str) else raw
+    risk = run_row.get("risk_score")
+    evaluated_at = run_row.get("evaluated_at")
+
+    lines = []
+
+    if risk is not None:
+        style = "green" if risk < 0.3 else "yellow" if risk <= 0.7 else "red"
+        lines.append(f"Risk score:         [{style}]{risk:.4f}[/{style}]")
+
+    inp = scores.get("input")
+    if inp:
+        violations = inp.get("policy_violations", [])
+        if violations:
+            lines.append(f"Input quality:      [red]{', '.join(sorted(violations))}[/red]")
+        else:
+            lines.append("Input quality:      [green]all checks passed[/green]")
+
+    out = scores.get("output")
+    if out and out.get("error") is None:
+        for key, label in [
+            ("faithfulness", "Faithfulness"),
+            ("answer_relevancy", "Answer relevancy"),
+            ("context_precision", "Context precision"),
+            ("context_recall", "Context recall"),
+        ]:
+            val = out.get(key)
+            if val is not None:
+                lines.append(f"{label + ':':<20}{val:.4f}")
+
+    if evaluated_at:
+        lines.append(f"Evaluated at:       {evaluated_at}")
+
+    if not lines:
+        return None
+
+    return Panel("\n".join(lines), title="Evaluation Scores", border_style="cyan")
+
+
+def render(record: RunRecord, full: bool = False, run_row: dict = None) -> None:
     console.print()
     console.print(f"[bold]Query:[/bold] {record.query}")
     resp = record.response
@@ -174,6 +219,11 @@ def render(record: RunRecord, full: bool = False) -> None:
         result = mod.analyze(record)
         if result is not None:
             console.print(renderer(result, full))
+
+    if run_row is not None:
+        eval_panel = _render_eval_scores(run_row)
+        if eval_panel is not None:
+            console.print(eval_panel)
 
     if record.final_prompt:
         if full:

@@ -179,7 +179,7 @@ def explain(target, full, to_html):
         path = html_renderer.render(record, run_id)
         console.print(f"Report written to {path}")
     else:
-        terminal_renderer.render(record, full=full)
+        terminal_renderer.render(record, full=full, run_row=run_row)
 
 
 @main.command()
