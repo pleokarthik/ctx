@@ -1,0 +1,12 @@
+[tool.uv.workspace]
+members = [
+    "packages/ctx-capture",
+    "packages/ctx",
+    "packages/ctx-evaluate",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]

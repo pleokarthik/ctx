@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+*.so
+
+# uv
+.uv/
+uv.lock
+
+# ctx runtime — never commit user run data
+.ctx/
+
+# environment
+.env
+*.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# test output
+.pytest_cache/
+htmlcov/
+.coverage

@@ -1,0 +1,29 @@
+[project]
+name = "ctx-evaluate"
+version = "0.1.0"
+description = "Evaluation layer for ctx observability system"
+requires-python = ">=3.11"
+dependencies = [
+    "ragas>=0.2",
+    "scipy>=1.13",
+    "rich>=13.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+ollama = [
+    "ollama>=0.2",
+]
+transformers = [
+    "sentence-transformers>=3.0",
+]
+
+[project.scripts]
+ctx-evaluate = "ctx_evaluate.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ctx_evaluate"]
