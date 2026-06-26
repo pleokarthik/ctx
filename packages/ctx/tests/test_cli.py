@@ -1,5 +1,10 @@
+import json
+import sqlite3
+
 from click.testing import CliRunner
 
+from ctx_capture.schema import RunRecord
+from ctx_capture.store import SCHEMA
 from ctx_cli.cli import main
 
 
@@ -48,6 +53,58 @@ class TestFind:
     def test_session_filter(self, populated_db):
         result = CliRunner().invoke(main, ["find", "--session", "s2", "score"])
         assert result.exit_code == 0
+
+    def test_on_empty_database(self):
+        result = CliRunner().invoke(main, ["find", "anything"])
+        assert result.exit_code == 0
+        assert "No matching runs found" in result.output
+
+    def test_exact_flag(self, populated_db):
+        result = CliRunner().invoke(main, ["find", "score scale differences", "--exact"])
+        assert result.exit_code == 0
+        assert "Search results (1)" in result.output
+
+        result = CliRunner().invoke(main, ["find", "score ANN", "--exact"])
+        assert result.exit_code == 0
+        assert "No matching runs found" in result.output
+
+        result = CliRunner().invoke(main, ["find", "score ANN"])
+        assert result.exit_code == 0
+        assert "No matching runs found" not in result.output
+
+    def test_date_filters(self, ctx_home):
+        db_path = ctx_home / ".ctx" / "runs.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        rec = RunRecord(query="date test query", response="r")
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.executescript(SCHEMA)
+            conn.execute("INSERT INTO meta VALUES ('schema_version', '1')")
+            conn.execute(
+                "INSERT INTO sessions VALUES (1, NULL, 'p', '2026-06-10T10:00:00+00:00')"
+            )
+            conn.execute(
+                "INSERT INTO runs VALUES (1, 1, ?, 'p', '2026-06-10T10:00:00+00:00', ?)",
+                (rec.query, json.dumps(rec.to_json())),
+            )
+            conn.execute(
+                "INSERT INTO runs VALUES (1, 2, ?, 'p', '2026-06-15T10:00:00+00:00', ?)",
+                ("later query", json.dumps(RunRecord(query="later query", response="r").to_json())),
+            )
+
+        result = CliRunner().invoke(main, ["find", "--from", "2026-06-14"])
+        assert result.exit_code == 0
+        assert "later query" in result.output
+        assert "date test query" not in result.output
+
+        result = CliRunner().invoke(main, ["find", "--from", "2026-06-10", "--to", "2026-06-12"])
+        assert result.exit_code == 0
+        assert "date test query" in result.output
+        assert "later query" not in result.output
+
+    def test_disambiguation_screen(self, populated_db):
+        result = CliRunner().invoke(main, ["find", "BM25"])
+        assert result.exit_code == 0
+        assert result.output.count("BM25") >= 2
 
 
 class TestExplain:

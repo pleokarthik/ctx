@@ -45,6 +45,35 @@ class TestBuilder:
         with pytest.raises(ValueError, match="at least 10"):
             builder.build("pipe_a")
 
+    def test_build_with_exactly_10_runs(self, migrated_db):
+        for i in range(10):
+            score_val = 0.5 + i * 0.04
+            _insert_evaluated_run(
+                migrated_db, session_id=20, run_seq=i + 1, pipeline="boundary_pipe",
+                input_scores={
+                    "duplicate_ratio": 0.05 * (i % 4),
+                    "top_chunk_score": score_val,
+                    "mean_relevance": score_val,
+                },
+                output_scores={
+                    "faithfulness": score_val + 0.05,
+                    "answer_relevancy": score_val,
+                },
+            )
+        result = builder.build("boundary_pipe")
+        assert result["run_count"] == 10
+        assert len(result["factors"]) > 0
+
+    def test_build_with_9_runs_raises(self, migrated_db):
+        for i in range(9):
+            _insert_evaluated_run(
+                migrated_db, session_id=21, run_seq=i + 1, pipeline="nine_pipe",
+                input_scores={"top_chunk_score": 0.8},
+                output_scores={"faithfulness": 0.9},
+            )
+        with pytest.raises(ValueError, match="at least 10"):
+            builder.build("nine_pipe")
+
     def test_produces_correlations(self, migrated_db):
         for i in range(12):
             score_val = 0.5 + i * 0.03

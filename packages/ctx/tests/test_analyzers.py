@@ -1,4 +1,4 @@
-from ctx_capture.schema import RunRecord, ChunkRecord
+from ctx_capture.schema import RunRecord, ChunkRecord, TokenBudget, Turn
 
 from ctx_cli.explain.analyzers import (
     tokens,
@@ -55,6 +55,33 @@ class TestTokens:
         assert result["headroom"] == 796
         assert result["model_limit"] == 4096
         assert len(result["per_chunk"]) == 2
+
+    def test_history_tokens_sums_both_pre_and_post(self):
+        record = RunRecord(
+            query="q",
+            response="r",
+            chunks=[
+                ChunkRecord(
+                    chunk_id="c1", source_doc_id="d1",
+                    content="text", token_count=10,
+                ),
+            ],
+            token_budget=TokenBudget(
+                total_limit=4096, chunks_allocated=2000,
+                history_allocated=500, system_allocated=800, headroom=796,
+            ),
+            history_pre=[
+                Turn(role="user", content="hello", tokens=10),
+                Turn(role="assistant", content="hi", tokens=20),
+                Turn(role="user", content="question", tokens=15),
+            ],
+            history_post=[
+                Turn(role="user", content="hello", tokens=10),
+                Turn(role="assistant", content="hi", tokens=20),
+            ],
+        )
+        result = tokens.analyze(record)
+        assert result["history_tokens"] == 75  # 10+20+15 + 10+20
 
 
 class TestDuplicates:
