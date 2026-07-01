@@ -9,7 +9,7 @@ from ctx_evaluate.policy.store import load_policy
 def check(
     session_id: int,
     run_seq: int,
-    pipeline: str = None,
+    pipeline: str | None = None,
 ) -> dict:
     run_row = store.get_run(session_id, run_seq)
     if run_row is None:

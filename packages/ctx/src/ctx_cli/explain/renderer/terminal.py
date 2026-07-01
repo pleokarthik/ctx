@@ -204,7 +204,7 @@ def _render_eval_scores(run_row: dict) -> Panel | None:
     return Panel("\n".join(lines), title="Evaluation Scores", border_style="cyan")
 
 
-def render(record: RunRecord, full: bool = False, run_row: dict = None) -> None:
+def render(record: RunRecord, full: bool = False, run_row: dict | None = None) -> None:
     console.print()
     console.print(f"[bold]Query:[/bold] {record.query}")
     resp = record.response

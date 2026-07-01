@@ -49,7 +49,7 @@ def check_schema_version() -> None:
         conn.close()
 
 
-def list_sessions(pipeline: str = None) -> list[dict]:
+def list_sessions(pipeline: str | None = None) -> list[dict]:
     conn = _connect()
     if conn is None:
         return []
@@ -133,13 +133,13 @@ def _has_fts5(conn: sqlite3.Connection) -> bool:
 
 
 def search_runs(
-    hint: str = None,
+    hint: str | None = None,
     exact: bool = False,
-    session_id: int = None,
-    pipeline: str = None,
-    from_dt: str = None,
-    to_dt: str = None,
-    recent_n: int = None,
+    session_id: int | None = None,
+    pipeline: str | None = None,
+    from_dt: str | None = None,
+    to_dt: str | None = None,
+    recent_n: int | None = None,
 ) -> list[dict]:
     from ctx_cli.find.query_builder import build_search_query
 
@@ -163,7 +163,7 @@ def search_runs(
         conn.close()
 
 
-def resolve_target(target: str = None) -> dict | list[dict] | None:
+def resolve_target(target: str | None = None) -> dict | list[dict] | None:
     if target is None:
         return get_latest_run()
 

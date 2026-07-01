@@ -63,7 +63,7 @@ class Run:
             except Exception:
                 pass
 
-    def history(self, pre: list, post: list, reason: str = None) -> None:
+    def history(self, pre: list, post: list, reason: str | None = None) -> None:
         try:
             self._record.history_pre = [
                 t if isinstance(t, Turn) else Turn(**t) for t in pre
@@ -78,7 +78,7 @@ class Run:
             except Exception:
                 pass
 
-    def response(self, response: str, token_usage=None, model: str = None) -> None:
+    def response(self, response: str, token_usage=None, model: str | None = None) -> None:
         try:
             self._record.response = response
             self._record.model = model
@@ -122,7 +122,7 @@ class Run:
                 pass
 
 
-def start(query: str, pipeline: str = None) -> Run:
+def start(query: str, pipeline: str | None = None) -> Run:
     run = Run(query, pipeline)
     set_active_run(run)
     return run
@@ -181,7 +181,7 @@ def context(final_prompt: str, token_budget=None) -> None:
     run.context(final_prompt, token_budget)
 
 
-def history(pre: list, post: list, reason: str = None) -> None:
+def history(pre: list, post: list, reason: str | None = None) -> None:
     run = get_active_run()
     if run is None:
         _get_logger().error("history() called with no active run")
@@ -189,7 +189,7 @@ def history(pre: list, post: list, reason: str = None) -> None:
     run.history(pre, post, reason)
 
 
-def response(response: str, token_usage=None, model: str = None) -> None:
+def response(response: str, token_usage=None, model: str | None = None) -> None:
     run = get_active_run()
     if run is None:
         _get_logger().error("response() called with no active run")

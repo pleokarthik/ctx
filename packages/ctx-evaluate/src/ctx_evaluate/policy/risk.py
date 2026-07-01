@@ -13,7 +13,7 @@ _DEFAULT_WEIGHTS = {
 def compute_risk_score(
     input_scores: dict,
     policy: InputQualityPolicy,
-    weights: dict = None,
+    weights: dict | None = None,
 ) -> float:
     if weights is None:
         weights = _DEFAULT_WEIGHTS

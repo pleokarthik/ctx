@@ -1,4 +1,5 @@
 import math
+from typing import Callable
 
 from ctx_capture.schema import RunRecord
 from ctx_evaluate.policy.schema import InputQualityPolicy
@@ -71,7 +72,7 @@ def _detect_semantic_dups(chunks, embedding_fn) -> int:
 def score(
     record: RunRecord,
     policy: InputQualityPolicy,
-    embedding_fn: callable = None,
+    embedding_fn: Callable | None = None,
 ) -> dict | None:
     if not record.chunks:
         return None

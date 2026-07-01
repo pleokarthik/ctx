@@ -37,7 +37,7 @@ def run_pipeline(query: str) -> str:
 '''
 
 
-def generate_scaffold(output_path: Path = None) -> Path:
+def generate_scaffold(output_path: Path | None = None) -> Path:
     if output_path is None:
         output_path = Path.cwd()
     target = output_path / "ctx_pipeline.py"

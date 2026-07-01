@@ -5,7 +5,7 @@ from pathlib import Path
 from ctx_evaluate import store
 
 
-def export(pipeline: str = None, output_path: Path = None) -> Path:
+def export(pipeline: str | None = None, output_path: Path | None = None) -> Path:
     runs = store.get_all_evaluated_runs(pipeline)
 
     records = []

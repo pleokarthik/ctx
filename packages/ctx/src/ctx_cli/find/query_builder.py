@@ -1,11 +1,11 @@
 def build_search_query(
-    hint: str = None,
+    hint: str | None = None,
     exact: bool = False,
-    session_id: int = None,
-    pipeline: str = None,
-    from_dt: str = None,
-    to_dt: str = None,
-    recent_n: int = None,
+    session_id: int | None = None,
+    pipeline: str | None = None,
+    from_dt: str | None = None,
+    to_dt: str | None = None,
+    recent_n: int | None = None,
     fts5_available: bool = False,
 ) -> tuple[str, list]:
     base = (

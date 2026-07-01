@@ -294,7 +294,7 @@ def get_benchmark(pipeline: str) -> list[dict]:
         conn.close()
 
 
-def get_all_evaluated_runs(pipeline: str = None) -> list[dict]:
+def get_all_evaluated_runs(pipeline: str | None = None) -> list[dict]:
     conn = _connect()
     if conn is None:
         return []

@@ -50,7 +50,7 @@ def _disambiguate(results: list[dict]) -> dict | None:
     return None
 
 
-def _resolve_and_load(target: str = None):
+def _resolve_and_load(target: str | None = None):
     result = store.resolve_target(target)
     if result is None:
         console.print("No runs found.")
