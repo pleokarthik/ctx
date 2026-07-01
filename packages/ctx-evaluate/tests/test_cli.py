@@ -18,7 +18,7 @@ class TestMigrationOnCommand:
             ver = conn.execute(
                 "SELECT value FROM meta WHERE key = 'schema_version'"
             ).fetchone()
-        assert ver["value"] == "2"
+        assert ver["value"] == "3"
 
 
 class TestRunCommand:

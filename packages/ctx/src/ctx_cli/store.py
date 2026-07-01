@@ -125,6 +125,13 @@ def get_latest_run() -> dict | None:
         conn.close()
 
 
+def _has_fts5(conn: sqlite3.Connection) -> bool:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='runs_fts'"
+    ).fetchone()
+    return row is not None
+
+
 def search_runs(
     hint: str = None,
     exact: bool = False,
@@ -136,19 +143,21 @@ def search_runs(
 ) -> list[dict]:
     from ctx_cli.find.query_builder import build_search_query
 
-    sql, params = build_search_query(
-        hint=hint,
-        exact=exact,
-        session_id=session_id,
-        pipeline=pipeline,
-        from_dt=from_dt,
-        to_dt=to_dt,
-        recent_n=recent_n,
-    )
     conn = _connect()
     if conn is None:
         return []
     try:
+        fts5 = _has_fts5(conn) if hint is not None else False
+        sql, params = build_search_query(
+            hint=hint,
+            exact=exact,
+            session_id=session_id,
+            pipeline=pipeline,
+            from_dt=from_dt,
+            to_dt=to_dt,
+            recent_n=recent_n,
+            fts5_available=fts5,
+        )
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
     finally:
         conn.close()

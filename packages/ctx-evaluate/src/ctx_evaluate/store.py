@@ -36,46 +36,85 @@ def apply_migration() -> None:
         ).fetchone()
         version = row["value"] if row else None
 
-        if version == "2":
+        if version == "3":
             return
 
-        if version != "1":
+        if version not in ("1", "2"):
             raise RuntimeError(
                 f"Unsupported schema version: {version!r}. "
-                f"Expected '1' or '2'. Cannot migrate."
+                f"Expected '1', '2', or '3'. Cannot migrate."
             )
 
-        for col, col_type in [
-            ("eval_scores", "TEXT"),
-            ("risk_score", "REAL"),
-            ("evaluated_at", "TEXT"),
-        ]:
-            if not _column_exists(conn, "runs", col):
-                conn.execute(f"ALTER TABLE runs ADD COLUMN {col} {col_type}")
+        if version == "1":
+            for col, col_type in [
+                ("eval_scores", "TEXT"),
+                ("risk_score", "REAL"),
+                ("evaluated_at", "TEXT"),
+            ]:
+                if not _column_exists(conn, "runs", col):
+                    conn.execute(f"ALTER TABLE runs ADD COLUMN {col} {col_type}")
 
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS benchmark (
-                pipeline      TEXT NOT NULL,
-                factor        TEXT NOT NULL,
-                threshold     REAL,
-                correlation   REAL,
-                sample_count  INTEGER NOT NULL DEFAULT 0,
-                updated_at    TEXT NOT NULL,
-                PRIMARY KEY (pipeline, factor)
-            )"""
-        )
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS policies (
-                pipeline     TEXT PRIMARY KEY,
-                policy_data  TEXT NOT NULL,
-                updated_at   TEXT NOT NULL
-            )"""
-        )
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS benchmark (
+                    pipeline      TEXT NOT NULL,
+                    factor        TEXT NOT NULL,
+                    threshold     REAL,
+                    correlation   REAL,
+                    sample_count  INTEGER NOT NULL DEFAULT 0,
+                    updated_at    TEXT NOT NULL,
+                    PRIMARY KEY (pipeline, factor)
+                )"""
+            )
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS policies (
+                    pipeline     TEXT PRIMARY KEY,
+                    policy_data  TEXT NOT NULL,
+                    updated_at   TEXT NOT NULL
+                )"""
+            )
+            conn.execute(
+                "UPDATE meta SET value = '2' WHERE key = 'schema_version'"
+            )
+            conn.commit()
+            version = "2"
 
-        conn.execute(
-            "UPDATE meta SET value = '2' WHERE key = 'schema_version'"
-        )
-        conn.commit()
+        if version == "2":
+            conn.execute(
+                """CREATE VIRTUAL TABLE IF NOT EXISTS runs_fts
+                USING fts5(
+                    query,
+                    content=runs,
+                    content_rowid=rowid,
+                    tokenize='unicode61 remove_diacritics 1'
+                )"""
+            )
+            conn.execute("INSERT INTO runs_fts(runs_fts) VALUES('rebuild')")
+            conn.execute(
+                """CREATE TRIGGER IF NOT EXISTS runs_fts_ins
+                AFTER INSERT ON runs BEGIN
+                    INSERT INTO runs_fts(rowid, query) VALUES (new.rowid, new.query);
+                END"""
+            )
+            conn.execute(
+                """CREATE TRIGGER IF NOT EXISTS runs_fts_del
+                AFTER DELETE ON runs BEGIN
+                    INSERT INTO runs_fts(runs_fts, rowid, query)
+                    VALUES ('delete', old.rowid, old.query);
+                END"""
+            )
+            conn.execute(
+                """CREATE TRIGGER IF NOT EXISTS runs_fts_upd
+                AFTER UPDATE OF query ON runs BEGIN
+                    INSERT INTO runs_fts(runs_fts, rowid, query)
+                    VALUES ('delete', old.rowid, old.query);
+                    INSERT INTO runs_fts(rowid, query) VALUES (new.rowid, new.query);
+                END"""
+            )
+            conn.execute("DROP INDEX IF EXISTS idx_runs_query")
+            conn.execute(
+                "UPDATE meta SET value = '3' WHERE key = 'schema_version'"
+            )
+            conn.commit()
     finally:
         conn.close()
 
@@ -148,6 +187,32 @@ def write_eval_scores(
         conn.close()
 
 
+def write_eval_scores_batch(entries: list[tuple]) -> None:
+    """Write eval scores for multiple runs in a single transaction.
+
+    Each entry is (session_id, run_seq, eval_scores_dict, risk_score).
+    """
+    if not entries:
+        return
+    conn = _connect()
+    if conn is None:
+        return
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [
+            (json.dumps(eval_scores), risk_score, now, session_id, run_seq)
+            for session_id, run_seq, eval_scores, risk_score in entries
+        ]
+        conn.executemany(
+            "UPDATE runs SET eval_scores = ?, risk_score = ?, evaluated_at = ? "
+            "WHERE session_id = ? AND run_seq = ?",
+            rows,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_eval_scores(session_id: int, run_seq: int) -> dict | None:
     conn = _connect()
     if conn is None:
@@ -184,6 +249,30 @@ def write_benchmark_entry(
             "(pipeline, factor, threshold, correlation, sample_count, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (pipeline, factor, threshold, correlation, sample_count, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def write_benchmark_entries_batch(entries: list[tuple]) -> None:
+    """Write multiple benchmark entries in a single transaction.
+
+    Each entry is (pipeline, factor, threshold, correlation, sample_count).
+    """
+    if not entries:
+        return
+    conn = _connect()
+    if conn is None:
+        return
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [(p, f, t, c, s, now) for p, f, t, c, s in entries]
+        conn.executemany(
+            "INSERT OR REPLACE INTO benchmark "
+            "(pipeline, factor, threshold, correlation, sample_count, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
         )
         conn.commit()
     finally:

@@ -36,10 +36,17 @@ def _resolve_target(target: str = None) -> dict | None:
     return None
 
 
-def _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline_override):
+def _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_override,
+                   policy=None):
+    """Compute eval scores for a single run without writing to the DB.
+
+    Pass policy to avoid a redundant load_policy() call when the caller
+    already resolved it (e.g. from a per-pipeline cache in the session loop).
+    """
     record = RunRecord.from_json(json.loads(run_row["run_data"]))
-    pipeline = pipeline_override or run_row["pipeline"] or "__default"
-    policy = load_policy(pipeline)
+    if policy is None:
+        pipeline = pipeline_override or run_row["pipeline"] or "__default"
+        policy = load_policy(pipeline)
 
     result = {}
 
@@ -57,14 +64,18 @@ def _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline_overr
     if result.get("input"):
         risk = compute_risk_score(result["input"], policy)
 
+    return {"eval_scores": result, "risk_score": risk}
+
+
+def _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline_override):
+    result = _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_override)
     store.write_eval_scores(
         session_id=run_row["session_id"],
         run_seq=run_row["run_seq"],
-        eval_scores=result,
-        risk_score=risk,
+        eval_scores=result["eval_scores"],
+        risk_score=result["risk_score"],
     )
-
-    return {"eval_scores": result, "risk_score": risk}
+    return result
 
 
 def _fmt(val) -> str:
@@ -148,8 +159,23 @@ def run_cmd(target, input_only, output_only, session_filter, ground_truth, pipel
         if not runs:
             console.print(f"No runs found in session {sid}.")
             return
+        policy_cache: dict = {}
+        computed = []
         for run_row in runs:
-            result = _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline)
+            pipeline_key = pipeline or run_row["pipeline"] or "__default"
+            if pipeline_key not in policy_cache:
+                policy_cache[pipeline_key] = load_policy(pipeline_key)
+            result = _compute_eval(
+                run_row, input_only, output_only, ground_truth, pipeline,
+                policy=policy_cache[pipeline_key],
+            )
+            computed.append((run_row, result))
+        store.write_eval_scores_batch([
+            (run_row["session_id"], run_row["run_seq"],
+             result["eval_scores"], result["risk_score"])
+            for run_row, result in computed
+        ])
+        for run_row, result in computed:
             _render_eval_result(run_row, result)
     else:
         run_row = _resolve_target(target)

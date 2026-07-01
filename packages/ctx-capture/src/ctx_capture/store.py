@@ -125,3 +125,18 @@ def write_run(session_id, run_seq, record: RunRecord, pipeline) -> None:
                 json.dumps(record.to_json()),
             ),
         )
+
+
+def write_runs_batch(session_id: int, start_seq: int, records: list, pipeline: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+        (session_id, start_seq + i, record.query, pipeline, now,
+         json.dumps(record.to_json()))
+        for i, record in enumerate(records)
+    ]
+    with sqlite3.connect(str(_db_path())) as conn:
+        conn.executemany(
+            "INSERT INTO runs (session_id, run_seq, query, pipeline, created_at, run_data) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )

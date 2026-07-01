@@ -58,6 +58,7 @@ def build(pipeline: str = None) -> dict:
 
     pipeline_key = pipeline or "__default"
     factors_result = {}
+    batch_entries: list[tuple] = []
 
     for factor in INPUT_FACTORS:
         factor_values: list[float] = []
@@ -101,19 +102,15 @@ def build(pipeline: str = None) -> dict:
         primary_ragas = ragas_values[RAGAS_METRICS[0]]
         suggested = _suggest_threshold(factor_values, primary_ragas)
 
-        store.write_benchmark_entry(
-            pipeline=pipeline_key,
-            factor=factor,
-            threshold=suggested,
-            correlation=primary_corr,
-            sample_count=len(factor_values),
-        )
+        batch_entries.append((pipeline_key, factor, suggested, primary_corr, len(factor_values)))
 
         factors_result[factor] = {
             **correlations,
             "suggested_threshold": suggested,
             "sample_count": len(factor_values),
         }
+
+    store.write_benchmark_entries_batch(batch_entries)
 
     return {
         "run_count": len(runs),

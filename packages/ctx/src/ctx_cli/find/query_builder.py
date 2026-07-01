@@ -6,6 +6,7 @@ def build_search_query(
     from_dt: str = None,
     to_dt: str = None,
     recent_n: int = None,
+    fts5_available: bool = False,
 ) -> tuple[str, list]:
     base = (
         "SELECT r.session_id, r.run_seq, r.query, r.pipeline, "
@@ -17,7 +18,18 @@ def build_search_query(
     params: list = []
 
     if hint is not None:
-        if exact:
+        if fts5_available:
+            if exact:
+                fts_query = f'"{hint}"'
+            else:
+                tokens = hint.split()
+                fts_query = " OR ".join(f'"{t}"' for t in tokens) if tokens else None
+            if fts_query:
+                clauses.append(
+                    "r.rowid IN (SELECT rowid FROM runs_fts WHERE runs_fts MATCH ?)"
+                )
+                params.append(fts_query)
+        elif exact:
             clauses.append("r.query LIKE ?")
             params.append(f"%{hint}%")
         else:

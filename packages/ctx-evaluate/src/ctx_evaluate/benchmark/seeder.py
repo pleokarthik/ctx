@@ -12,17 +12,15 @@ def seed(pipeline: str, count: int = 20) -> int:
     """
     seeded_pipeline = f"{pipeline}__seeded"
     half = count // 2
-    written = 0
 
-    for i in range(half):
-        _write_seeded(_good_record(i), seeded_pipeline)
-        written += 1
+    records = [_good_record(i) for i in range(half)]
+    records += [_bad_record(i) for i in range(count - half)]
 
-    for i in range(count - half):
-        _write_seeded(_bad_record(i), seeded_pipeline)
-        written += 1
+    session_id = capture_store.get_or_create_session(seeded_pipeline)
+    start_seq = capture_store.next_run_seq(session_id)
+    capture_store.write_runs_batch(session_id, start_seq, records, seeded_pipeline)
 
-    return written
+    return count
 
 
 def _good_record(idx: int) -> RunRecord:
@@ -91,7 +89,3 @@ def _bad_record(idx: int) -> RunRecord:
     )
 
 
-def _write_seeded(record: RunRecord, pipeline: str) -> None:
-    session_id = capture_store.get_or_create_session(pipeline)
-    run_seq = capture_store.next_run_seq(session_id)
-    capture_store.write_run(session_id, run_seq, record, pipeline)
