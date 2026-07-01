@@ -2,6 +2,7 @@ import json
 import re
 from dataclasses import fields
 from pathlib import Path
+from typing import get_type_hints
 
 import click
 from rich.console import Console
@@ -27,7 +28,7 @@ def _parse_session_id(value: str) -> int:
     return int(value)
 
 
-def _resolve_target(target: str = None) -> dict | None:
+def _resolve_target(target: str | None = None) -> dict | None:
     if target is None:
         return store.get_latest_run()
     m = _TARGET_RE.match(target)
@@ -61,8 +62,9 @@ def _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_overr
             result["output"] = None
 
     risk = 0.0
-    if result.get("input"):
-        risk = compute_risk_score(result["input"], policy)
+    input_data = result.get("input")
+    if input_data:
+        risk = compute_risk_score(input_data, policy)
 
     return {"eval_scores": result, "risk_score": risk}
 
@@ -348,10 +350,11 @@ def policy_set(field, value, pipeline):
         raise SystemExit(1)
 
     f = valid_fields[field]
+    field_type = get_type_hints(InputQualityPolicy)[f.name]
     try:
-        typed_value = f.type(value)
+        typed_value = field_type(value)
     except (ValueError, TypeError):
-        console.print(f"[red]Invalid value for {field} (expected {f.type.__name__}): {value}[/red]")
+        console.print(f"[red]Invalid value for {field} (expected {field_type.__name__}): {value}[/red]")
         raise SystemExit(1)
 
     pol = load_policy(pipeline_key)

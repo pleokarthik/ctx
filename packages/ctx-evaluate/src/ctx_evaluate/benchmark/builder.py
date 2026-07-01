@@ -43,7 +43,7 @@ def _suggest_threshold(values: list[float], ragas_scores: list[float]) -> float:
     return round(best_threshold, 4)
 
 
-def build(pipeline: str = None) -> dict:
+def build(pipeline: str | None = None) -> dict:
     runs = store.get_all_evaluated_runs(pipeline)
 
     if len(runs) < 10:
@@ -92,7 +92,9 @@ def build(pipeline: str = None) -> dict:
                 and len(set(vals)) > 1
             ):
                 corr, _ = stats.pearsonr(factor_values, vals)
-                correlations[f"{m}_correlation"] = round(corr, 4)
+                # float(): scipy stubs expose corr as numpy.float64 (_T_co), not float;
+                # the cast is the narrowing workaround — no type: ignore needed.
+                correlations[f"{m}_correlation"] = round(float(corr), 4)
             else:
                 correlations[f"{m}_correlation"] = None
 
