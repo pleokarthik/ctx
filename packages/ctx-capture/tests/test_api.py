@@ -42,6 +42,7 @@ class TestCapture:
                 "total_tokens": 150,
             },
             cache_events=[{"chunk_id": "c1", "hit": True}],
+            tool_calls=[{"tool_name": "search", "arguments": {"query": "RRF"}}],
         )
         with sqlite3.connect(str(store._db_path())) as conn:
             row = conn.execute("SELECT run_data FROM runs").fetchone()
@@ -49,6 +50,7 @@ class TestCapture:
         assert data["model"] == "gpt-4"
         assert data["chunks"][0]["chunk_id"] == "c1"
         assert data["token_budget"]["headroom"] == 796
+        assert data["tool_calls"][0]["tool_name"] == "search"
 
 
 class TestStartAndRun:
@@ -73,6 +75,19 @@ class TestStartAndRun:
         assert len(data["chunks"]) == 1
         assert data["chunks"][0]["chunk_id"] == "c1"
 
+    def test_tool_call_appends_not_replaces(self):
+        run = ctx_capture.start("test query", pipeline="test")
+        run.tool_call({"tool_name": "search", "arguments": {"query": "RRF"}})
+        run.tool_call({"tool_name": "fetch_url", "arguments": {"url": "x"}})
+        run.response("test response")
+
+        with sqlite3.connect(str(store._db_path())) as conn:
+            row = conn.execute("SELECT run_data FROM runs").fetchone()
+        data = json.loads(row[0])
+        assert len(data["tool_calls"]) == 2
+        assert data["tool_calls"][0]["tool_name"] == "search"
+        assert data["tool_calls"][1]["tool_name"] == "fetch_url"
+
 
 class TestFailureSilence:
     def test_capture_failure_never_raises(self, monkeypatch):
@@ -88,6 +103,7 @@ class TestFailureSilence:
         run.context(None)
         run.history(None, None)
         run.cache("bad")
+        run.tool_call("not a dict")
 
     def test_commit_failure_never_raises(self, monkeypatch):
         def fail(*a, **k):
@@ -115,12 +131,17 @@ class TestThreadLocal:
         assert len(run._record.chunks) == 1
         assert run._record.chunks[0].chunk_id == "c1"
 
+        ctx_capture.tool_call({"tool_name": "search", "arguments": {"query": "RRF"}})
+        assert len(run._record.tool_calls) == 1
+        assert run._record.tool_calls[0].tool_name == "search"
+
         ctx_capture.response("proxy response")
         assert run._committed
 
     def test_proxy_without_active_run_is_silent(self):
         ctx_capture.chunks([])
         ctx_capture.context("prompt")
+        ctx_capture.tool_call({"tool_name": "search", "arguments": {}})
         ctx_capture.response("r")
         ctx_capture.commit()
 

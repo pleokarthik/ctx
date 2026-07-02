@@ -49,27 +49,28 @@ Each tool is independent. They share a single local SQLite store at
 # install
 uv sync
 
-# run the example pipeline — captures 8 runs across 2 sessions
-python examples/rag_pipeline/run_pipeline.py
+# run the examples — captures runs across several sessions
+python examples/rag_pipeline/01_quickstart.py
+python examples/rag_pipeline/02_capture_patterns.py
 
 # browse what was captured
 ctx list
-ctx list s1
+ctx list s4
 
 # inspect the latest run — all seven factors
 ctx explain --full
 
 # inspect a specific run
-ctx explain s1r3
-ctx explain s1r3 --full
-ctx explain s1r3 --html        # snapshot to ~/.ctx/reports/
+ctx explain s4r3
+ctx explain s4r3 --full
+ctx explain s4r3 --html        # snapshot to ~/.ctx/reports/
 
 # search runs by query text
 ctx find "reranking"
-ctx find "RRF" --session s1
+ctx find "RRF" --session s4
 
 # compare two runs
-ctx diff s1r4 s1r3
+ctx diff s4r1 s4r3
 
 # evaluate input quality — no LLM required
 ctx-evaluate run --input-only
@@ -78,7 +79,7 @@ ctx-evaluate run --input-only
 ctx-evaluate benchmark show
 
 # check a specific run against benchmark
-ctx-evaluate benchmark check s1r1
+ctx-evaluate benchmark check s4r3
 
 # see active quality policy
 ctx-evaluate policy show

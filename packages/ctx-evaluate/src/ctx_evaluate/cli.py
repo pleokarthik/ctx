@@ -1,7 +1,6 @@
 import json
 import re
 from dataclasses import fields
-from pathlib import Path
 from typing import get_type_hints
 
 import click
@@ -9,12 +8,10 @@ from rich.console import Console
 from rich.table import Table
 
 from ctx_capture.schema import RunRecord
-from ctx_evaluate import store
-from ctx_evaluate.layers import input_quality, output_quality
+from ctx_evaluate import store, evaluate_run, check_run, export_benchmark
 from ctx_evaluate.policy.store import load_policy, save_policy, reset_policy
 from ctx_evaluate.policy.schema import InputQualityPolicy
-from ctx_evaluate.policy.risk import compute_risk_score
-from ctx_evaluate.benchmark import builder, seeder, checker, exporter
+from ctx_evaluate.benchmark import builder, seeder
 
 console = Console()
 _TARGET_RE = re.compile(r"^s(\d+)r(\d+)$", re.IGNORECASE)
@@ -41,32 +38,35 @@ def _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_overr
                    policy=None):
     """Compute eval scores for a single run without writing to the DB.
 
+    Delegates the actual scoring sequence (policy load -> input quality ->
+    output quality -> risk) to ctx_evaluate.evaluate_run(), the package's
+    public facade -- this function's job is resolving the run row into a
+    RunRecord + pipeline key, then reshaping the result into the
+    {"eval_scores": {...}, "risk_score": ...} contract the rest of this
+    module and store.write_eval_scores[_batch] expect.
+
     Pass policy to avoid a redundant load_policy() call when the caller
     already resolved it (e.g. from a per-pipeline cache in the session loop).
     """
     record = RunRecord.from_json(json.loads(run_row["run_data"]))
-    if policy is None:
-        pipeline = pipeline_override or run_row["pipeline"] or "__default"
-        policy = load_policy(pipeline)
+    pipeline = pipeline_override or run_row["pipeline"] or "__default"
 
-    result = {}
+    result = evaluate_run(
+        record,
+        pipeline=pipeline,
+        ground_truth=ground_truth,
+        input_only=input_only,
+        output_only=output_only,
+        policy=policy,
+    )
 
-    if not output_only:
-        result["input"] = input_quality.score(record, policy)
+    if result.get("output_error"):
+        console.print(f"[yellow]{result['output_error']}[/yellow]")
 
-    if not input_only:
-        try:
-            result["output"] = output_quality.score(record, ground_truth)
-        except ImportError as e:
-            console.print(f"[yellow]{e}[/yellow]")
-            result["output"] = None
-
-    risk = 0.0
-    input_data = result.get("input")
-    if input_data:
-        risk = compute_risk_score(input_data, policy)
-
-    return {"eval_scores": result, "risk_score": risk}
+    return {
+        "eval_scores": {"input": result.get("input"), "output": result.get("output")},
+        "risk_score": result.get("risk_score", 0.0),
+    }
 
 
 def _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline_override):
@@ -255,13 +255,12 @@ def benchmark_show(pipeline):
 @click.option("--pipeline", default=None)
 def benchmark_check(target, pipeline):
     """Check a run against benchmark thresholds."""
-    m = _TARGET_RE.match(target)
-    if not m:
+    if not _TARGET_RE.match(target):
         console.print("[red]Target must be in sNrN format.[/red]")
         raise SystemExit(1)
 
     try:
-        result = checker.check(int(m.group(1)), int(m.group(2)), pipeline)
+        result = check_run(target, pipeline)
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
         raise SystemExit(1)
@@ -299,8 +298,7 @@ def benchmark_seed(pipeline, count):
 @click.option("--output", default=None)
 def benchmark_export(pipeline, output):
     """Export evaluated runs as RAGAS-compatible JSONL."""
-    out_path = Path(output) if output else None
-    path = exporter.export(pipeline, out_path)
+    path = export_benchmark(pipeline, output)
     console.print(f"Exported to {path}")
 
 

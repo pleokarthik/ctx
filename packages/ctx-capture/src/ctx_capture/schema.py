@@ -66,6 +66,16 @@ class CacheEvent:
 
 @_flexible
 @dataclass
+class ToolCallRecord:
+    tool_name: str
+    arguments: dict
+    result: Optional[str] = None
+    error: Optional[str] = None
+    latency_ms: Optional[float] = None
+
+
+@_flexible
+@dataclass
 class RunRecord:
     query: str
     response: str
@@ -76,6 +86,7 @@ class RunRecord:
     history_post: Optional[list[Turn]] = None
     eviction_reason: Optional[str] = None
     cache_events: Optional[list[CacheEvent]] = None
+    tool_calls: Optional[list[ToolCallRecord]] = None
     model: Optional[str] = None
     token_usage: Optional[TokenUsage] = None
 
@@ -95,6 +106,8 @@ class RunRecord:
             data["history_post"] = [Turn(**t) for t in data["history_post"]]
         if data.get("cache_events") is not None:
             data["cache_events"] = [CacheEvent(**e) for e in data["cache_events"]]
+        if data.get("tool_calls") is not None:
+            data["tool_calls"] = [ToolCallRecord(**t) for t in data["tool_calls"]]
         if data.get("token_usage") is not None:
             data["token_usage"] = TokenUsage(**data["token_usage"])
         return cls(**data)

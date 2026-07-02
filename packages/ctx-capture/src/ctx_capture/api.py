@@ -6,6 +6,7 @@ from ctx_capture.schema import (
     TokenUsage,
     Turn,
     CacheEvent,
+    ToolCallRecord,
     RunRecord,
 )
 from ctx_capture import store
@@ -107,6 +108,18 @@ class Run:
             except Exception:
                 pass
 
+    def tool_call(self, call) -> None:
+        try:
+            record = call if isinstance(call, ToolCallRecord) else ToolCallRecord(**call)
+            if self._record.tool_calls is None:
+                self._record.tool_calls = []
+            self._record.tool_calls.append(record)
+        except Exception as e:
+            try:
+                _get_logger().error("run.tool_call() failed: %s", e)
+            except Exception:
+                pass
+
     def commit(self) -> None:
         if self._committed:
             return
@@ -147,6 +160,9 @@ def capture(query: str, response: str, **kwargs) -> None:
             run._record.eviction_reason = kwargs["eviction_reason"]
         if "cache_events" in kwargs:
             run.cache(kwargs["cache_events"])
+        if "tool_calls" in kwargs:
+            for call in kwargs["tool_calls"]:
+                run.tool_call(call)
         if "model" in kwargs:
             run._record.model = kwargs["model"]
         if "token_usage" in kwargs:
@@ -203,6 +219,14 @@ def cache(events: list) -> None:
         _get_logger().error("cache() called with no active run")
         return
     run.cache(events)
+
+
+def tool_call(call) -> None:
+    run = get_active_run()
+    if run is None:
+        _get_logger().error("tool_call() called with no active run")
+        return
+    run.tool_call(call)
 
 
 def commit() -> None:

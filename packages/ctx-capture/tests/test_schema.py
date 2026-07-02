@@ -4,6 +4,7 @@ from ctx_capture.schema import (
     TokenUsage,
     Turn,
     CacheEvent,
+    ToolCallRecord,
     RunRecord,
 )
 
@@ -52,6 +53,14 @@ def _full_record():
             CacheEvent(chunk_id="c1", hit=True, cache_source="disk"),
             CacheEvent(chunk_id="c2", hit=False),
         ],
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="search",
+                arguments={"query": "RRF"},
+                result="3 hits",
+                latency_ms=120.5,
+            ),
+        ],
         model="gpt-4",
         token_usage=TokenUsage(input_tokens=300, output_tokens=50, total_tokens=350),
     )
@@ -90,6 +99,8 @@ class TestFullRunRecord:
         assert len(data["history_pre"]) == 2
         assert len(data["history_post"]) == 1
         assert len(data["cache_events"]) == 2
+        assert len(data["tool_calls"]) == 1
+        assert data["tool_calls"][0]["tool_name"] == "search"
         assert data["model"] == "gpt-4"
         assert data["eviction_reason"] == "token_budget"
 
@@ -104,6 +115,8 @@ class TestFullRunRecord:
         assert rec.history_pre[0].tokens == 3
         assert isinstance(rec.cache_events[0], CacheEvent)
         assert rec.cache_events[0].cache_source == "disk"
+        assert isinstance(rec.tool_calls[0], ToolCallRecord)
+        assert rec.tool_calls[0].arguments == {"query": "RRF"}
         assert isinstance(rec.token_usage, TokenUsage)
 
     def test_round_trip(self):
@@ -129,7 +142,60 @@ class TestFlexibleInit:
         assert c.chunk_id == "c1"
         assert not hasattr(c, "future_field")
 
+    def test_toolcall_unknown_kwargs_ignored(self):
+        t = ToolCallRecord(
+            tool_name="search",
+            arguments={"query": "RRF"},
+            future_field="ignored",
+        )
+        assert t.tool_name == "search"
+        assert not hasattr(t, "future_field")
+
     def test_from_json_ignores_unknown_fields(self):
         data = {"query": "q", "response": "r", "new_field": True}
         rec = RunRecord.from_json(data)
         assert rec.query == "q"
+
+
+class TestToolCallsRoundTrip:
+    def test_round_trip_preserves_tool_calls(self):
+        original = RunRecord(
+            query="q",
+            response="r",
+            tool_calls=[
+                ToolCallRecord(
+                    tool_name="search",
+                    arguments={"query": "RRF", "top_k": 5},
+                    result="3 hits",
+                    latency_ms=120.5,
+                ),
+                ToolCallRecord(
+                    tool_name="fetch_url",
+                    arguments={"url": "https://example.com"},
+                    error="timeout",
+                ),
+            ],
+        )
+
+        restored = RunRecord.from_json(original.to_json())
+
+        assert original.to_json() == restored.to_json()
+        assert len(restored.tool_calls) == 2
+
+        first, second = restored.tool_calls
+        assert isinstance(first, ToolCallRecord)
+        assert first.tool_name == "search"
+        assert first.arguments == {"query": "RRF", "top_k": 5}
+        assert first.result == "3 hits"
+        assert first.latency_ms == 120.5
+        assert first.error is None
+
+        assert isinstance(second, ToolCallRecord)
+        assert second.tool_name == "fetch_url"
+        assert second.error == "timeout"
+        assert second.result is None
+
+    def test_round_trip_none_tool_calls(self):
+        original = RunRecord(query="q", response="r")
+        restored = RunRecord.from_json(original.to_json())
+        assert restored.tool_calls is None
