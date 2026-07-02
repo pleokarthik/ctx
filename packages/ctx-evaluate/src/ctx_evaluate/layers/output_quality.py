@@ -1,7 +1,7 @@
 from ctx_capture.schema import RunRecord
 
 
-def score(record: RunRecord, ground_truth: str | None = None) -> dict | None:
+def score_output_quality(record: RunRecord, ground_truth: str | None = None) -> dict | None:
     if not record.chunks or not record.response:
         return None
 

@@ -1,29 +1,7 @@
 import json
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 
-
-def _ctx_dir() -> Path:
-    return Path.home() / ".ctx"
-
-
-def _db_path() -> Path:
-    return _ctx_dir() / "runs.db"
-
-
-def _connect() -> sqlite3.Connection | None:
-    path = _db_path()
-    if not path.exists():
-        return None
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(row["name"] == column for row in rows)
+from ctx_capture.store import _connect, _column_exists  # noqa: F401 (re-exported for callers)
 
 
 def apply_migration() -> None:

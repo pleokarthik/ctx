@@ -5,10 +5,10 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from ctx_cli import store
-from ctx_cli.explain import loader
-from ctx_cli.explain.renderer import terminal as terminal_renderer
-from ctx_cli.explain.renderer import html as html_renderer
+from ctx import store
+from ctx.explain import loader
+from ctx.explain.renderer import terminal as terminal_renderer
+from ctx.explain.renderer import html as html_renderer
 
 console = Console()
 

@@ -286,7 +286,7 @@ uv run pytest packages/ctx/tests/
 uv run pytest packages/ctx-evaluate/tests/
 ```
 
-181 tests across three packages. All pass.
+199 tests across three packages. All pass.
 
 ---
 

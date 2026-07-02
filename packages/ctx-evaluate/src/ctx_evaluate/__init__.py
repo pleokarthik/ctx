@@ -1,17 +1,15 @@
 import json
-import re
 from pathlib import Path
 
 from ctx_capture.schema import RunRecord
+from ctx_capture.store import parse_target_id
 from ctx_evaluate import store
-from ctx_evaluate.layers.input_quality import score as score_input
-from ctx_evaluate.layers.output_quality import score as score_output
+from ctx_evaluate.layers.input_quality import score_input_quality as score_input
+from ctx_evaluate.layers.output_quality import score_output_quality as score_output
 from ctx_evaluate.policy.schema import InputQualityPolicy
-from ctx_evaluate.policy.store import load_policy
+from ctx_evaluate.policy.persistence import load_policy
 from ctx_evaluate.policy.risk import compute_risk_score
 from ctx_evaluate.benchmark import seeder, builder, checker, exporter
-
-_TARGET_RE = re.compile(r"^s(\d+)r(\d+)$", re.IGNORECASE)
 
 __all__ = [
     "score_input",
@@ -100,10 +98,10 @@ def check_run(target: str, pipeline: str | None = None) -> dict:
     id. There's no "latest" fallback here because the CLI command doesn't
     have one either -- its `target` argument is required, unlike `run`'s.
     """
-    m = _TARGET_RE.match(target)
-    if not m:
+    parsed = parse_target_id(target)
+    if parsed is None:
         raise ValueError(f"Target must be in sNrN format, got: {target!r}")
-    return checker.check(int(m.group(1)), int(m.group(2)), pipeline)
+    return checker.check(*parsed, pipeline)
 
 
 def export_benchmark(pipeline: str | None = None, output_path: str | Path | None = None) -> Path:

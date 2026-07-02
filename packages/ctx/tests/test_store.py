@@ -1,4 +1,4 @@
-from ctx_cli import store
+from ctx import store
 
 
 class TestListSessions:

@@ -1,8 +1,8 @@
 from pathlib import Path
 
+from ctx_capture import store as _capture_store
 from ctx_capture.schema import RunRecord
-from ctx_cli import store as _store
-from ctx_cli.explain.analyzers import (
+from ctx.explain.analyzers import (
     tokens as tokens_mod,
     duplicates as duplicates_mod,
     truncation as truncation_mod,
@@ -29,7 +29,7 @@ def _section(title: str, content: str) -> str:
 
 
 def render(record: RunRecord, run_id: str) -> Path:
-    reports_dir = _store._ctx_dir() / "reports"
+    reports_dir = _capture_store._ctx_dir() / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     out = reports_dir / f"{run_id}.html"
 

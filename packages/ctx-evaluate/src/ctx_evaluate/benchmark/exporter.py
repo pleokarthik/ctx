@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from ctx_capture import store as capture_store
 from ctx_evaluate import store
 
 
@@ -20,7 +21,7 @@ def export(pipeline: str | None = None, output_path: Path | None = None) -> Path
     if output_path is None:
         pipe_name = pipeline or "all"
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        exports_dir = store._ctx_dir() / "exports"
+        exports_dir = capture_store._ctx_dir() / "exports"
         exports_dir.mkdir(parents=True, exist_ok=True)
         output_path = exports_dir / f"{pipe_name}_ragas_{timestamp}.jsonl"
     else:

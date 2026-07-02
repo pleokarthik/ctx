@@ -3,7 +3,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ctx_capture.schema import RunRecord
-from ctx_cli.explain.analyzers import (
+from ctx.explain.analyzers import (
     tokens as tokens_mod,
     duplicates as duplicates_mod,
     truncation as truncation_mod,

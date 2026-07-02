@@ -1,6 +1,6 @@
 from ctx_capture.schema import RunRecord, ChunkRecord, TokenBudget, Turn
 
-from ctx_cli.explain.analyzers import (
+from ctx.explain.analyzers import (
     tokens,
     duplicates,
     truncation,

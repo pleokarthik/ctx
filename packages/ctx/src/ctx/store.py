@@ -1,28 +1,14 @@
-import re
 import sqlite3
 import sys
-from pathlib import Path
+
+from ctx_capture.store import (
+    _connect,
+    _column_exists as _has_column,
+    _db_path as get_db_path,
+    parse_target_id,
+)
 
 EXPECTED_SCHEMA_VERSION = "1"
-
-_TARGET_RE = re.compile(r"^s(\d+)r(\d+)$", re.IGNORECASE)
-
-
-def _ctx_dir() -> Path:
-    return Path.home() / ".ctx"
-
-
-def get_db_path() -> Path:
-    return _ctx_dir() / "runs.db"
-
-
-def _connect() -> sqlite3.Connection | None:
-    path = get_db_path()
-    if not path.exists():
-        return None
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def check_schema_version() -> None:
@@ -84,11 +70,6 @@ def list_runs(session_id: int) -> list[dict]:
         conn.close()
 
 
-def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(row["name"] == column for row in rows)
-
-
 def _run_select_cols(conn: sqlite3.Connection) -> str:
     base = "session_id, run_seq, query, pipeline, created_at, run_data"
     if _has_column(conn, "runs", "eval_scores"):
@@ -141,7 +122,7 @@ def search_runs(
     to_dt: str | None = None,
     recent_n: int | None = None,
 ) -> list[dict]:
-    from ctx_cli.find.query_builder import build_search_query
+    from ctx.find.query_builder import build_search_query
 
     conn = _connect()
     if conn is None:
@@ -167,15 +148,15 @@ def resolve_target(target: str | None = None) -> dict | list[dict] | None:
     if target is None:
         return get_latest_run()
 
-    m = _TARGET_RE.match(target)
-    if m:
-        return get_run(int(m.group(1)), int(m.group(2)))
+    parsed = parse_target_id(target)
+    if parsed:
+        return get_run(*parsed)
 
     results = search_runs(hint=target)
     if len(results) == 1:
         return get_run(results[0]["session_id"], results[0]["run_seq"])
     if len(results) > 1:
-        from ctx_cli.find.bm25 import score
+        from ctx.find.bm25 import score
 
         results.sort(key=lambda r: score(target, r["query"]), reverse=True)
         return results

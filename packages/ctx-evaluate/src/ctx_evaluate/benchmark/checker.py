@@ -3,7 +3,7 @@ import json
 from ctx_capture.schema import RunRecord
 from ctx_evaluate import store
 from ctx_evaluate.layers import input_quality
-from ctx_evaluate.policy.store import load_policy
+from ctx_evaluate.policy.persistence import load_policy
 
 
 def check(
@@ -19,7 +19,7 @@ def check(
     pipeline = pipeline or run_row["pipeline"] or "__default"
     policy = load_policy(pipeline)
 
-    input_scores = input_quality.score(record, policy)
+    input_scores = input_quality.score_input_quality(record, policy)
     benchmark = store.get_benchmark(pipeline)
     benchmark_map = {b["factor"]: b for b in benchmark}
 

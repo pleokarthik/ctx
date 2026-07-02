@@ -10,11 +10,11 @@ Three independent packages share one SQLite file at `~/.ctx/runs.db`:
 
 ```
 ctx-capture (import ctxrun)   → writes runs.db
-ctx         (ctx_cli)         → reads runs.db, renders analysis
+ctx         (import ctx)      → reads runs.db, renders analysis
 ctx-evaluate (ctx_evaluate)   → reads + augments runs.db with eval columns
 ```
 
-No package imports another's CLI. `ctx_cli` and `ctx_evaluate` both import
+No package imports another's CLI. `ctx` and `ctx_evaluate` both import
 `ctx_capture.schema.RunRecord` to deserialize the JSON blob each run is
 stored as — that dataclass module is the only real coupling between them.
 
@@ -149,9 +149,9 @@ created on the next `get_or_create_session()` call.
 
 ---
 
-## 3. ctx — analyst CLI (`ctx_cli`)
+## 3. ctx — analyst CLI
 
-Entry point: `ctx_cli.cli:main`, a `click.Group`. Every subcommand first
+Entry point: `ctx.cli:main`, a `click.Group`. Every subcommand first
 triggers `main()`'s body: `store.check_schema_version()`
 (`cli.py:68`-`70`), which warns to stderr (not fatal) if `~/.ctx/runs.db`'s
 `meta.schema_version` is older than `EXPECTED_SCHEMA_VERSION = "1"`.
@@ -592,7 +592,7 @@ cross every analyzer's threshold.
   helper returns `None` if `~/.ctx/runs.db` doesn't exist yet, and every
   caller treats `None` as "no data" (empty list / `None` row) rather than
   raising. First-run UX is "No runs found." rather than a traceback.
-- **Schema versioning is package-local**: `ctx_cli.store` only ever reads
+- **Schema versioning is package-local**: `ctx.store` only ever reads
   `meta.schema_version` and warns if stale — it never writes migrations.
   `ctx_capture.store` owns v1 (initial create). `ctx_evaluate.store` owns
   the v1→v2→v3 migrations (eval columns + benchmark/policies tables, then
@@ -601,16 +601,16 @@ cross every analyzer's threshold.
   plain `ctx find` too — a real cross-package coupling worth knowing about
   when debugging "why is `ctx find` doing substring LIKE instead of FTS5."
   It's caused by `ctx-evaluate` never having been run against that DB.
-  See `store.check_schema_version()` (`ctx_cli/store.py:28`) — only warns,
+  See `store.check_schema_version()` (`ctx/store.py:28`) — only warns,
   never migrates.
   See `ctx_evaluate.store.apply_migration()` (§4.1) — the only writer.
-  See `ctx_cli.find.query_builder.build_search_query()` (§3.3) — the only
+  See `ctx.find.query_builder.build_search_query()` (§3.3) — the only
   reader that branches on FTS5 presence.
 - **Two independent duplicate-detection implementations**: `ctx explain`'s
   `duplicates.py` (substring-only window check) and `ctx-evaluate`'s
   `input_quality._detect_window_dups` (substring **or** >50% token
   Jaccard) can disagree on borderline cases. This is intentional
-  package independence (`ctx-evaluate` doesn't import `ctx_cli`), not a
+  package independence (`ctx-evaluate` doesn't import `ctx`), not a
   bug, but it means duplicate counts shown by `ctx explain` and
   `ctx-evaluate run` for the same run are not guaranteed to match.
 - **`__default` pipeline key**: any command accepting `--pipeline` treats

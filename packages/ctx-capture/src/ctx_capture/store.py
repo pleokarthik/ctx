@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -6,6 +7,10 @@ from pathlib import Path
 from ctx_capture.schema import RunRecord
 
 SCHEMA_VERSION = "1"
+
+# Canonical sNrN run-id format, shared by ctx_evaluate and ctx so there's
+# one parser for the format instead of a copy re-implemented per package.
+TARGET_RE = re.compile(r"^s(\d+)r(\d+)$", re.IGNORECASE)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -44,6 +49,32 @@ def _ctx_dir() -> Path:
 
 def _db_path() -> Path:
     return _ctx_dir() / "runs.db"
+
+
+def _connect() -> sqlite3.Connection | None:
+    """Row-factory connection for read/update call sites across ctx_evaluate
+    and ctx. Returns None if the store doesn't exist yet -- callers treat
+    a missing DB as "no data" rather than an error."""
+    path = _db_path()
+    if not path.exists():
+        return None
+    conn = sqlite3.connect(str(path))
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
+
+def parse_target_id(target: str) -> tuple[int, int] | None:
+    """Parse an sNrN run identifier into (session_id, run_seq), or None if
+    `target` isn't in that format."""
+    m = TARGET_RE.match(target)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
 
 
 def init_store() -> Path:

@@ -8,13 +8,13 @@ from rich.console import Console
 from rich.table import Table
 
 from ctx_capture.schema import RunRecord
+from ctx_capture.store import TARGET_RE, parse_target_id
 from ctx_evaluate import store, evaluate_run, check_run, export_benchmark
-from ctx_evaluate.policy.store import load_policy, save_policy, reset_policy
+from ctx_evaluate.policy.persistence import load_policy, save_policy, reset_policy
 from ctx_evaluate.policy.schema import InputQualityPolicy
 from ctx_evaluate.benchmark import builder, seeder
 
 console = Console()
-_TARGET_RE = re.compile(r"^s(\d+)r(\d+)$", re.IGNORECASE)
 _SESSION_RE = re.compile(r"^s(\d+)$", re.IGNORECASE)
 
 
@@ -28,9 +28,9 @@ def _parse_session_id(value: str) -> int:
 def _resolve_target(target: str | None = None) -> dict | None:
     if target is None:
         return store.get_latest_run()
-    m = _TARGET_RE.match(target)
-    if m:
-        return store.get_run(int(m.group(1)), int(m.group(2)))
+    parsed = parse_target_id(target)
+    if parsed:
+        return store.get_run(*parsed)
     return None
 
 
@@ -69,7 +69,7 @@ def _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_overr
     }
 
 
-def _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline_override):
+def _evaluate_run_and_persist(run_row, input_only, output_only, ground_truth, pipeline_override):
     result = _compute_eval(run_row, input_only, output_only, ground_truth, pipeline_override)
     store.write_eval_scores(
         session_id=run_row["session_id"],
@@ -184,7 +184,7 @@ def run_cmd(target, input_only, output_only, session_filter, ground_truth, pipel
         if run_row is None:
             console.print("No runs found.")
             return
-        result = _evaluate_run(run_row, input_only, output_only, ground_truth, pipeline)
+        result = _evaluate_run_and_persist(run_row, input_only, output_only, ground_truth, pipeline)
         _render_eval_result(run_row, result)
 
 
@@ -255,7 +255,7 @@ def benchmark_show(pipeline):
 @click.option("--pipeline", default=None)
 def benchmark_check(target, pipeline):
     """Check a run against benchmark thresholds."""
-    if not _TARGET_RE.match(target):
+    if not TARGET_RE.match(target):
         console.print("[red]Target must be in sNrN format.[/red]")
         raise SystemExit(1)
 

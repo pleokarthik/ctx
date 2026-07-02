@@ -317,7 +317,7 @@ Semantic dependencies are optional extras — `pip install ctx[semantic]`.
 **Deliverables**
 
 ```
-ctx_cli/
+ctx/
   cli.py                      # entrypoint — all ctx commands
   store.py                    # read-only SQLite queries
   find/

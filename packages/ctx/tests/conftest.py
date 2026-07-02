@@ -17,7 +17,9 @@ from ctx_capture.store import SCHEMA
 @pytest.fixture(autouse=True)
 def ctx_home(tmp_path, monkeypatch):
     ctx_dir = tmp_path / ".ctx"
-    monkeypatch.setattr("ctx_cli.store._ctx_dir", lambda: ctx_dir)
+    # ctx.store re-exports ctx_capture.store's _ctx_dir rather than
+    # defining its own, so patching the one canonical home is sufficient.
+    monkeypatch.setattr("ctx_capture.store._ctx_dir", lambda: ctx_dir)
     return tmp_path
 
 

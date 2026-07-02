@@ -69,7 +69,7 @@ def _detect_semantic_dups(chunks, embedding_fn) -> int:
     return count
 
 
-def score(
+def score_input_quality(
     record: RunRecord,
     policy: InputQualityPolicy,
     embedding_fn: Callable | None = None,

@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 from ctx_capture.schema import RunRecord
 from ctx_capture.store import SCHEMA
-from ctx_cli.cli import main
+from ctx.cli import main
 
 
 class TestList:

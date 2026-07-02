@@ -1,5 +1,5 @@
 from ctx_evaluate.policy.schema import InputQualityPolicy
-from ctx_evaluate.policy.store import load_policy, save_policy, reset_policy
+from ctx_evaluate.policy.persistence import load_policy, save_policy, reset_policy
 
 
 class TestPolicySchema:

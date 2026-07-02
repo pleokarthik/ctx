@@ -4,7 +4,7 @@ import sqlite3
 import pytest
 
 from ctx_capture.store import SCHEMA
-from ctx_evaluate.store import apply_migration, _db_path
+from ctx_evaluate.store import apply_migration
 
 
 # ---------------------------------------------------------------------------

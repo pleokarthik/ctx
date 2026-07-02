@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
+from ctx_capture import store as capture_store
 from ctx_capture.schema import RunRecord
 from ctx_evaluate import (
     evaluate_run,
@@ -17,7 +18,7 @@ from ctx_evaluate import (
 from ctx_evaluate.cli import main
 from ctx_evaluate.benchmark import checker
 from ctx_evaluate.policy.schema import InputQualityPolicy
-from ctx_evaluate.policy.store import load_policy as _real_load_policy
+from ctx_evaluate.policy.persistence import load_policy as _real_load_policy
 
 
 def _seed_evaluated_runs(db_path, pipeline, count=10, session_id=500):
@@ -186,7 +187,7 @@ class TestExportBenchmark:
 
         path = export_benchmark("pipe_a")
 
-        assert path.parent == store._ctx_dir() / "exports"
+        assert path.parent == capture_store._ctx_dir() / "exports"
         assert path.exists()
 
 
